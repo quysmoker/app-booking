@@ -3,10 +3,12 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 from mongoengine import connect
+import certifi
 
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -139,9 +141,10 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
+MONGO_URI = os.getenv("MONGO_URI")
 
 connect(
-    db=os.getenv("MONGO_DB_NAME", "sport_booking_db"),
-    host=os.getenv("MONGO_HOST", "localhost"),
-    port=int(os.getenv("MONGO_PORT", 27017)),
+    host=MONGO_URI,
+    tls=True,
+    tlsCAFile=certifi.where()
 )
