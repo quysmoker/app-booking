@@ -8,7 +8,7 @@ from bson import ObjectId
 
 def get_current_user(request):
     auth_header = request.headers.get("Authorization")
-    print("AUTH HEADER:", auth_header)
+   
 
     if not auth_header:
         print("No Authorization header")
@@ -20,11 +20,10 @@ def get_current_user(request):
         print("Header format error")
         return None
 
-    print("TOKEN TYPE:", token_type)
-    print("TOKEN:", token)
+   
 
     payload = decode_token(token)
-    print("PAYLOAD:", payload)
+
 
     if not payload:
         print("Decode token failed")
@@ -42,7 +41,7 @@ def get_current_user(request):
         print("ObjectId error:", e)
         return None
 
-    print("USER:", user)
+
 
     if not user:
         print("User not found")
