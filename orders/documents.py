@@ -15,13 +15,24 @@ from users.documents import User
 
 
 class OrderItem(EmbeddedDocument):
-    # Lưu dạng snapshot để sản phẩm có thay đổi thì đơn cũ vẫn giữ nguyên
     product_id = StringField(required=True)
     product_name = StringField(required=True)
     product_image = StringField(default="")
-    quantity = IntField(required=True, min_value=1)
-    unit_price = FloatField(required=True, min_value=0)
-    subtotal = FloatField(required=True, min_value=0)
+
+    quantity = IntField(
+        required=True,
+        min_value=1,
+    )
+
+    unit_price = FloatField(
+        required=True,
+        min_value=0,
+    )
+
+    subtotal = FloatField(
+        required=True,
+        min_value=0,
+    )
 
     def to_json_data(self):
         return {
@@ -56,8 +67,15 @@ class Order(Document):
         "refunded",
     )
 
-    code = StringField(required=True, unique=True)
-    user = ReferenceField(User, required=True)
+    code = StringField(
+        required=True,
+        unique=True,
+    )
+
+    user = ReferenceField(
+        User,
+        required=True,
+    )
 
     items = EmbeddedDocumentListField(
         OrderItem,
@@ -69,10 +87,28 @@ class Order(Document):
     shipping_address = StringField(required=True)
     note = StringField(default="")
 
-    subtotal = FloatField(required=True, min_value=0)
-    shipping_fee = FloatField(default=0, min_value=0)
-    discount_amount = FloatField(default=0, min_value=0)
-    total_amount = FloatField(required=True, min_value=0)
+    subtotal = FloatField(
+        required=True,
+        min_value=0,
+    )
+
+    shipping_fee = FloatField(
+        default=0,
+        min_value=0,
+    )
+
+    voucher_id = StringField(default="")
+    voucher_code = StringField(default="")
+
+    discount_amount = FloatField(
+        default=0,
+        min_value=0,
+    )
+
+    total_amount = FloatField(
+        required=True,
+        min_value=0,
+    )
 
     status = StringField(
         choices=STATUS_CHOICES,
@@ -100,6 +136,7 @@ class Order(Document):
             "user",
             "status",
             "payment_status",
+            "voucher_code",
             "-created_at",
         ],
         "ordering": ["-created_at"],
@@ -124,6 +161,8 @@ class Order(Document):
             "note": self.note,
             "subtotal": self.subtotal,
             "shipping_fee": self.shipping_fee,
+            "voucher_id": self.voucher_id,
+            "voucher_code": self.voucher_code,
             "discount_amount": self.discount_amount,
             "total_amount": self.total_amount,
             "status": self.status,
