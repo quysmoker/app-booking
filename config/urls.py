@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view
 
 
+
 @api_view(["GET"])
 def health_check(request):
     return Response({
@@ -19,4 +20,5 @@ urlpatterns = [
     path("api/courts/", include("courts.urls")),
     path("api/bookings/", include("bookings.urls")),
     path("api/products/", include("products.urls")),
+    path("api/cart/", include("carts.urls")),
 ]
