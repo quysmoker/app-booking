@@ -10,6 +10,8 @@ from authentication.permissions import login_required
 from orders.documents import Order
 from payments.documents import Payment
 
+from notifications.services import create_notification
+
 
 def get_payment_by_id(payment_id):
     try:
@@ -182,6 +184,23 @@ class PaymentListCreateView(APIView):
             status="pending",
         )
         payment.save()
+
+        create_notification(
+            recipient=payment.user,
+            notification_type="payment",
+            title="Thanh toán thành công",
+            message=(
+                "Giao dịch thanh toán của bạn "
+                "đã hoàn tất thành công."
+            ),
+            related_id=str(payment.id),
+            related_type="payment",
+            data={
+                "payment_id": str(payment.id),
+                "status": payment.status,
+                "amount": payment.amount,
+            },
+        )
 
         return Response(
             {

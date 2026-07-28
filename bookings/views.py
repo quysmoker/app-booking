@@ -8,6 +8,8 @@ from bookings.documents import Booking
 from courts.documents import Court
 from authentication.permissions import login_required
 
+from notifications.services import create_notification
+
 
 def parse_datetime(value):
     try:
@@ -95,6 +97,22 @@ class BookingListCreateView(APIView):
             note=note,
         )
         booking.save()
+
+        create_notification(
+            recipient=request.current_user,
+            notification_type="booking",
+            title="Đặt sân thành công",
+            message=(
+                "Yêu cầu đặt sân của bạn đã được tạo "
+                "thành công."
+            ),
+            related_id=str(booking.id),
+            related_type="booking",
+            data={
+                "booking_id": str(booking.id),
+                "status": booking.status,
+            },
+        )
 
         return Response({
             "message": "Create booking successfully",

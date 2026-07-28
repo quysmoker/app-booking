@@ -11,6 +11,7 @@ from carts.documents import Cart
 from orders.documents import Order, OrderItem
 from products.documents import Product
 from vouchers.documents import Voucher
+from notifications.services import create_notification
 
 
 def get_order_by_id(order_id):
@@ -411,6 +412,22 @@ class OrderListCreateView(APIView):
                 payment_status="unpaid",
             )
             order.save()
+            
+            create_notification(
+                recipient=request.current_user,
+                notification_type="order",
+                title="Tạo đơn hàng thành công",
+                message=(
+                    "Đơn hàng của bạn đã được tạo thành công."
+                ),
+                related_id=str(order.id),
+                related_type="order",
+                data={
+                    "order_id": str(order.id),
+                    "status": order.status,
+                    "total_amount": order.total_amount,
+                },
+            )
 
         except Exception:
             restore_updated_products(
