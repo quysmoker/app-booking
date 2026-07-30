@@ -1,4 +1,6 @@
-from integration_tests.base import IntegrationTestBase
+from integration_tests.base import (
+    IntegrationTestBase,
+)
 from orders.documents import Order
 from products.documents import Product
 from reviews.documents import Review
@@ -16,6 +18,7 @@ class ReviewIntegrationTest(
 
         self.product = Product(
             name="Review Test Product",
+            category="racket",
             price=300000,
             stock=20,
             is_active=True,
@@ -37,7 +40,9 @@ class ReviewIntegrationTest(
             "/api/reviews/",
             {
                 "target_type": "product",
-                "target_id": str(self.product.id),
+                "target_id": str(
+                    self.product.id
+                ),
                 "rating": 5,
                 "comment": "Sản phẩm tốt",
             },
@@ -59,7 +64,9 @@ class ReviewIntegrationTest(
             "/api/reviews/",
             {
                 "target_type": "product",
-                "target_id": str(self.product.id),
+                "target_id": str(
+                    self.product.id
+                ),
                 "rating": 6,
                 "comment": "Invalid rating",
             },

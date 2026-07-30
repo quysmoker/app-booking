@@ -1,11 +1,15 @@
-import bcrypt
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
 
-from users.documents import User
+
+import bcrypt
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
 from authentication.jwt_utils import generate_token
 from authentication.permissions import login_required
+from users.documents import User
 
 
 class RegisterView(APIView):
@@ -16,21 +20,54 @@ class RegisterView(APIView):
         email = data.get("email")
         phone = data.get("phone", "")
         password = data.get("password")
-        role = data.get("role", "user")
 
         if not full_name or not email or not password:
             return Response(
-                {"message": "full_name, email and password are required"},
+                {
+                    "message": (
+                        "full_name, email and password are required"
+                    )
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if role not in ["admin", "staff", "user"]:
+        full_name = str(full_name).strip()
+        email = str(email).strip().lower()
+        phone = str(phone).strip()
+        password = str(password)
+
+        if not full_name or not email:
             return Response(
-                {"message": "Invalid role"},
+                {
+                    "message": (
+                        "full_name and email cannot be empty"
+                    )
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        existing_user = User.objects(email=email).first()
+        try:
+            validate_email(email)
+        except ValidationError:
+            return Response(
+                {"message": "Invalid email address"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if len(password) < 8:
+            return Response(
+                {
+                    "message": (
+                        "password must contain at least "
+                        "8 characters"
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        existing_user = User.objects(
+            email=email
+        ).first()
 
         if existing_user:
             return Response(
@@ -40,15 +77,16 @@ class RegisterView(APIView):
 
         hashed_password = bcrypt.hashpw(
             password.encode("utf-8"),
-            bcrypt.gensalt()
+            bcrypt.gensalt(),
         ).decode("utf-8")
 
+        # API đăng ký công khai không được phép tạo admin/staff.
         user = User(
             full_name=full_name,
             email=email,
             phone=phone,
             password=hashed_password,
-            role=role,
+            role="user",
         )
         user.save()
 
@@ -71,13 +109,25 @@ class LoginView(APIView):
         email = data.get("email")
         password = data.get("password")
 
-        if not email or not password:
+        if (
+            not email
+            or not password
+            or not isinstance(password, str)
+        ):
             return Response(
-                {"message": "email and password are required"},
+                {
+                    "message": (
+                        "email and password are required"
+                    )
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        user = User.objects(email=email).first()
+        email = str(email).strip().lower()
+
+        user = User.objects(
+            email=email
+        ).first()
 
         if not user:
             return Response(
@@ -85,10 +135,13 @@ class LoginView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        is_valid_password = bcrypt.checkpw(
-            password.encode("utf-8"),
-            user.password.encode("utf-8")
-        )
+        try:
+            is_valid_password = bcrypt.checkpw(
+                password.encode("utf-8"),
+                user.password.encode("utf-8"),
+            )
+        except (TypeError, ValueError):
+            is_valid_password = False
 
         if not is_valid_password:
             return Response(

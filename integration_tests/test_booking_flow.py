@@ -1,8 +1,10 @@
 from datetime import datetime, timedelta
 
-from integration_tests.base import IntegrationTestBase
 from bookings.documents import Booking
 from courts.documents import Court
+from integration_tests.base import (
+    IntegrationTestBase,
+)
 from notifications.documents import Notification
 
 
@@ -18,6 +20,7 @@ class BookingIntegrationTest(
 
         self.court = Court(
             name="Court Integration Test",
+            location="123 Test Street",
             sport_type="pickleball",
             price_per_hour=100000,
             status="available",
@@ -39,20 +42,20 @@ class BookingIntegrationTest(
             + timedelta(days=1)
         )
 
-        end_time = start_time + timedelta(hours=2)
+        end_time = (
+            start_time
+            + timedelta(hours=2)
+        )
 
         response = self.client.post(
             "/api/bookings/",
             {
                 "court_id": str(self.court.id),
-                "booking_date": (
-                    start_time.strftime("%Y-%m-%d")
-                ),
                 "start_time": (
-                    start_time.strftime("%H:%M")
+                    start_time.isoformat()
                 ),
                 "end_time": (
-                    end_time.strftime("%H:%M")
+                    end_time.isoformat()
                 ),
             },
             format="json",
@@ -70,7 +73,9 @@ class BookingIntegrationTest(
 
         self.assertIsNotNone(booking)
 
-    def test_cannot_create_overlapping_booking(self):
+    def test_cannot_create_overlapping_booking(
+        self,
+    ):
         self.login_user()
 
         booking_date = (
@@ -109,7 +114,9 @@ class BookingIntegrationTest(
             second_response.data,
         )
 
-    def test_booking_creation_creates_notification(self):
+    def test_booking_creation_creates_notification(
+        self,
+    ):
         self.login_user()
 
         booking_date = (
@@ -142,7 +149,52 @@ class BookingIntegrationTest(
         self.assertIsNotNone(
             notification,
             (
-                "Tạo booking thành công nhưng không "
-                "tạo notification"
+                "Tạo booking thành công nhưng "
+                "không tạo notification"
             ),
+        )
+
+    def test_staff_can_confirm_pending_booking(
+        self,
+    ):
+        booking = Booking(
+            user=self.user,
+            court=self.court,
+            start_time=(
+                datetime.utcnow()
+                + timedelta(days=1)
+            ),
+            end_time=(
+                datetime.utcnow()
+                + timedelta(
+                    days=1,
+                    hours=2,
+                )
+            ),
+            total_price=200000,
+            status="pending",
+        ).save()
+
+        self.login_staff()
+
+        response = self.client.patch(
+            (
+                f"/api/bookings/{booking.id}"
+                "/status/"
+            ),
+            {"status": "confirmed"},
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+            response.data,
+        )
+
+        booking.reload()
+
+        self.assertEqual(
+            booking.status,
+            "confirmed",
         )
