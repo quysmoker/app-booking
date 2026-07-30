@@ -1,14 +1,18 @@
-from integration_tests.base import IntegrationTestBase
+from integration_tests.base import (
+    IntegrationTestBase,
+)
 
 
 class PermissionIntegrationTest(
     IntegrationTestBase
 ):
-    def test_normal_user_cannot_access_dashboard(self):
+    def test_normal_user_cannot_access_dashboard(
+        self,
+    ):
         self.login_user()
 
         response = self.client.get(
-            "/api/dashboard/overview/"
+            "/api/dashboard/"
         )
 
         self.assertEqual(
@@ -21,7 +25,7 @@ class PermissionIntegrationTest(
         self.login_staff()
 
         response = self.client.get(
-            "/api/dashboard/overview/"
+            "/api/dashboard/"
         )
 
         self.assertEqual(
@@ -34,7 +38,7 @@ class PermissionIntegrationTest(
         self.login_admin()
 
         response = self.client.get(
-            "/api/dashboard/overview/"
+            "/api/dashboard/"
         )
 
         self.assertEqual(
@@ -43,7 +47,9 @@ class PermissionIntegrationTest(
             response.data,
         )
 
-    def test_user_cannot_broadcast_notification(self):
+    def test_user_cannot_broadcast_notification(
+        self,
+    ):
         self.login_user()
 
         response = self.client.post(
@@ -62,7 +68,9 @@ class PermissionIntegrationTest(
             response.data,
         )
 
-    def test_admin_can_broadcast_notification(self):
+    def test_admin_can_broadcast_notification(
+        self,
+    ):
         self.login_admin()
 
         response = self.client.post(
@@ -70,7 +78,9 @@ class PermissionIntegrationTest(
             {
                 "notification_type": "system",
                 "title": "System notification",
-                "message": "Integration test notification",
+                "message": (
+                    "Integration test notification"
+                ),
             },
             format="json",
         )

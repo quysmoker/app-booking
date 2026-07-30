@@ -1,5 +1,7 @@
-from integration_tests.base import IntegrationTestBase
-from carts.documents import Cart
+from carts.documents import Cart, CartItem
+from integration_tests.base import (
+    IntegrationTestBase,
+)
 from notifications.documents import Notification
 from orders.documents import Order
 from products.documents import Product
@@ -20,9 +22,22 @@ class OrderIntegrationTest(
 
         self.product = Product(
             name="Integration Pickleball Paddle",
+            category="racket",
             price=500000,
             stock=10,
             is_active=True,
+        ).save()
+
+    def prepare_cart(self, quantity):
+        return Cart(
+            user=self.user,
+            items=[
+                CartItem(
+                    product=self.product,
+                    quantity=quantity,
+                    unit_price=self.product.price,
+                )
+            ],
         ).save()
 
     def tearDown(self):
@@ -34,22 +49,19 @@ class OrderIntegrationTest(
 
         super().tearDown()
 
-    def test_create_order_reduces_product_stock(self):
+    def test_create_order_reduces_product_stock(
+        self,
+    ):
         self.login_user()
+        self.prepare_cart(quantity=2)
 
         initial_stock = self.product.stock
 
         response = self.client.post(
             "/api/orders/",
             {
-                "items": [
-                    {
-                        "product_id": str(
-                            self.product.id
-                        ),
-                        "quantity": 2,
-                    }
-                ],
+                "recipient_name": "Integration User",
+                "recipient_phone": "0900000000",
                 "shipping_address": (
                     "123 Integration Test Street"
                 ),
@@ -77,20 +89,17 @@ class OrderIntegrationTest(
 
         self.assertIsNotNone(order)
 
-    def test_create_order_creates_notification(self):
+    def test_create_order_creates_notification(
+        self,
+    ):
         self.login_user()
+        self.prepare_cart(quantity=1)
 
         response = self.client.post(
             "/api/orders/",
             {
-                "items": [
-                    {
-                        "product_id": str(
-                            self.product.id
-                        ),
-                        "quantity": 1,
-                    }
-                ],
+                "recipient_name": "Integration User",
+                "recipient_phone": "0900000000",
                 "shipping_address": (
                     "123 Integration Test Street"
                 ),
@@ -112,20 +121,17 @@ class OrderIntegrationTest(
 
         self.assertIsNotNone(notification)
 
-    def test_order_fails_when_stock_is_insufficient(self):
+    def test_order_fails_when_stock_is_insufficient(
+        self,
+    ):
         self.login_user()
+        self.prepare_cart(quantity=1000)
 
         response = self.client.post(
             "/api/orders/",
             {
-                "items": [
-                    {
-                        "product_id": str(
-                            self.product.id
-                        ),
-                        "quantity": 1000,
-                    }
-                ],
+                "recipient_name": "Integration User",
+                "recipient_phone": "0900000000",
                 "shipping_address": (
                     "123 Integration Test Street"
                 ),

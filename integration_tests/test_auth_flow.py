@@ -1,4 +1,6 @@
-from integration_tests.base import IntegrationTestBase
+from integration_tests.base import (
+    IntegrationTestBase,
+)
 
 
 class AuthenticationIntegrationTest(
@@ -61,4 +63,29 @@ class AuthenticationIntegrationTest(
         self.assertEqual(
             response.status_code,
             401,
+        )
+
+    def test_register_cannot_create_admin_account(
+        self,
+    ):
+        response = self.client.post(
+            "/api/auth/register/",
+            {
+                "email": "attacker@test.com",
+                "password": "Test123456",
+                "full_name": "Public User",
+                "role": "admin",
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            201,
+            response.data,
+        )
+
+        self.assertEqual(
+            response.data["user"]["role"],
+            "user",
         )

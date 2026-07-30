@@ -1,3 +1,5 @@
+
+
 import uuid
 from datetime import datetime
 
@@ -7,10 +9,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from authentication.permissions import login_required
+from notifications.services import create_notification
 from orders.documents import Order
 from payments.documents import Payment
-
-from notifications.services import create_notification
 
 
 def get_payment_by_id(payment_id):
@@ -42,8 +43,13 @@ class PaymentListCreateView(APIView):
     @login_required
     def get(self, request):
         user = request.current_user
-        payment_status = request.query_params.get("status")
-        method = request.query_params.get("method")
+
+        payment_status = request.query_params.get(
+            "status"
+        )
+        method = request.query_params.get(
+            "method"
+        )
 
         if user.role in ["admin", "staff"]:
             payments = Payment.objects()
@@ -54,7 +60,9 @@ class PaymentListCreateView(APIView):
             if payment_status not in Payment.STATUS_CHOICES:
                 return Response(
                     {
-                        "message": "Invalid payment status",
+                        "message": (
+                            "Invalid payment status"
+                        ),
                         "allowed_statuses": list(
                             Payment.STATUS_CHOICES
                         ),
@@ -70,7 +78,9 @@ class PaymentListCreateView(APIView):
             if method not in Payment.METHOD_CHOICES:
                 return Response(
                     {
-                        "message": "Invalid payment method",
+                        "message": (
+                            "Invalid payment method"
+                        ),
                         "allowed_methods": list(
                             Payment.METHOD_CHOICES
                         ),
@@ -188,10 +198,10 @@ class PaymentListCreateView(APIView):
         create_notification(
             recipient=payment.user,
             notification_type="payment",
-            title="Thanh toán thành công",
+            title="Đã tạo yêu cầu thanh toán",
             message=(
-                "Giao dịch thanh toán của bạn "
-                "đã hoàn tất thành công."
+                "Yêu cầu thanh toán của bạn đã được tạo "
+                "và đang chờ xác nhận."
             ),
             related_id=str(payment.id),
             related_type="payment",
@@ -305,6 +315,23 @@ class PaymentConfirmView(APIView):
         order.updated_at = datetime.utcnow()
         order.save()
 
+        create_notification(
+            recipient=payment.user,
+            notification_type="payment",
+            title="Thanh toán thành công",
+            message=(
+                "Giao dịch thanh toán của bạn "
+                "đã hoàn tất thành công."
+            ),
+            related_id=str(payment.id),
+            related_type="payment",
+            data={
+                "payment_id": str(payment.id),
+                "status": payment.status,
+                "amount": payment.amount,
+            },
+        )
+
         return Response(
             {
                 "message": (
@@ -356,16 +383,20 @@ class PaymentFailView(APIView):
             )
 
         payment.status = "failed"
+
         payment.failure_reason = request.data.get(
             "failure_reason",
             "Payment failed",
         )
+
         payment.updated_at = datetime.utcnow()
         payment.save()
 
         return Response(
             {
-                "message": "Mark payment failed successfully",
+                "message": (
+                    "Mark payment failed successfully"
+                ),
                 "data": payment.to_json_data(),
             },
             status=status.HTTP_200_OK,

@@ -1,57 +1,54 @@
+
+
 from functools import wraps
-from rest_framework.response import Response
-from rest_framework import status
-from users.documents import User
-from authentication.jwt_utils import decode_token
+
 from bson import ObjectId
+from rest_framework import status
+from rest_framework.response import Response
+
+from authentication.jwt_utils import decode_token
+from users.documents import User
 
 
 def get_current_user(request):
     auth_header = request.headers.get("Authorization")
-   
 
     if not auth_header:
-        print("No Authorization header")
         return None
 
     try:
-        token_type, token = auth_header.split(" ")
+        token_type, token = auth_header.split(" ", 1)
     except ValueError:
-        print("Header format error")
         return None
 
-   
+    if token_type.lower() != "bearer" or not token.strip():
+        return None
 
-    payload = decode_token(token)
-
+    payload = decode_token(token.strip())
 
     if not payload:
-        print("Decode token failed")
         return None
 
     user_id = payload.get("user_id")
 
     if not user_id:
-        print("No user_id in token")
         return None
 
     try:
-        user = User.objects(id=ObjectId(user_id)).first()
-    except Exception as e:
-        print("ObjectId error:", e)
+        user = User.objects(
+            id=ObjectId(user_id)
+        ).first()
+    except Exception:
         return None
 
-
-
     if not user:
-        print("User not found")
         return None
 
     if not user.is_active:
-        print("User inactive")
         return None
 
     return user
+
 
 def login_required(view_func):
     @wraps(view_func)
@@ -65,7 +62,13 @@ def login_required(view_func):
             )
 
         request.current_user = user
-        return view_func(self, request, *args, **kwargs)
+
+        return view_func(
+            self,
+            request,
+            *args,
+            **kwargs,
+        )
 
     return wrapper
 
@@ -89,7 +92,13 @@ def role_required(roles):
                 )
 
             request.current_user = user
-            return view_func(self, request, *args, **kwargs)
+
+            return view_func(
+                self,
+                request,
+                *args,
+                **kwargs,
+            )
 
         return wrapper
 

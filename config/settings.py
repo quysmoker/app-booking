@@ -1,158 +1,4 @@
 
-# import os
-# from pathlib import Path
-# from dotenv import load_dotenv
-# from mongoengine import connect
-# import certifi
-
-# load_dotenv()
-
-# BASE_DIR = Path(__file__).resolve().parent.parent
-
-# from pathlib import Path
-
-# # Build paths inside the project like this: BASE_DIR / 'subdir'.
-# BASE_DIR = Path(__file__).resolve().parent.parent
-
-
-
-# # SECURITY WARNING: keep the secret key used in production secret!
-# SECRET_KEY = 'django-insecure-#ef&y8@(6z7msmvh5)7ky_lrq7s2lijdvlncvw45ven8h)ufak'
-
-# # SECURITY WARNING: don't run with debug turned on in production!
-# DEBUG = True
-
-# ALLOWED_HOSTS = []
-
-
-# # Application definition
-
-# INSTALLED_APPS = [
-#     'django.contrib.admin',
-#     'django.contrib.auth',
-#     'django.contrib.contenttypes',
-#     'django.contrib.sessions',
-#     'django.contrib.messages',
-#     'django.contrib.staticfiles',
-#      "rest_framework",
-#     "corsheaders",
-#     "drf_spectacular",
-
-#     "authentication",
-#     "users",
-#     "courts",
-#     "bookings",
-#     "products",
-#     "carts",
-#     "orders",
-#     "reviews",
-#     "notifications",
-#     "payments",
-    
-# ]
-
-# MIDDLEWARE = [
-#     'django.middleware.security.SecurityMiddleware',
-#     'django.contrib.sessions.middleware.SessionMiddleware',
-#     'django.middleware.common.CommonMiddleware',
-#     'django.middleware.csrf.CsrfViewMiddleware',
-#     'django.contrib.auth.middleware.AuthenticationMiddleware',
-#     'django.contrib.messages.middleware.MessageMiddleware',
-#     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-#     "corsheaders.middleware.CorsMiddleware",
-
-#     "django.middleware.security.SecurityMiddleware",
-#     "django.contrib.sessions.middleware.SessionMiddleware",
-#     "django.middleware.common.CommonMiddleware",
-#     "django.middleware.csrf.CsrfViewMiddleware",
-#     "django.contrib.auth.middleware.AuthenticationMiddleware",
-#     "django.contrib.messages.middleware.MessageMiddleware",
-#     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-# ]
-
-# ROOT_URLCONF = 'config.urls'
-
-# TEMPLATES = [
-#     {
-#         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-#         'DIRS': [],
-#         'APP_DIRS': True,
-#         'OPTIONS': {
-#             'context_processors': [
-#                 'django.template.context_processors.request',
-#                 'django.contrib.auth.context_processors.auth',
-#                 'django.contrib.messages.context_processors.messages',
-#             ],
-#         },
-#     },
-# ]
-
-# WSGI_APPLICATION = 'config.wsgi.application'
-
-
-# # Database
-# # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
-
-
-# # Password validation
-# # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
-
-# AUTH_PASSWORD_VALIDATORS = [
-#     {
-#         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-#     },
-#     {
-#         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-#     },
-#     {
-#         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-#     },
-#     {
-#         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-#     },
-# ]
-
-
-# # Internationalization
-# # https://docs.djangoproject.com/en/6.0/topics/i18n/
-
-# LANGUAGE_CODE = 'en-us'
-
-# TIME_ZONE = 'UTC'
-
-# USE_I18N = True
-
-# USE_TZ = True
-
-# CORS_ALLOW_ALL_ORIGINS = True
-
-
-# # Static files (CSS, JavaScript, Images)
-# # https://docs.djangoproject.com/en/6.0/howto/static-files/
-
-# STATIC_URL = 'static/'
-
-
-
-# REST_FRAMEWORK = {
-#     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
-# }
-
-# MONGO_URI = os.getenv("MONGO_URI")
-
-# connect(
-#     host=MONGO_URI,
-#     tls=True,
-#     tlsCAFile=certifi.where()
-# )
-
 
 import os
 import sys
@@ -163,10 +9,6 @@ from dotenv import load_dotenv
 from mongoengine import connect
 
 
-# =========================================================
-# BASE CONFIGURATION
-# =========================================================
-
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv(BASE_DIR / ".env")
@@ -174,13 +16,19 @@ load_dotenv(BASE_DIR / ".env")
 
 SECRET_KEY = os.getenv(
     "SECRET_KEY",
-    "django-insecure-development-key",
+    "django-insecure-development-key-change-before-production",
 )
 
-DEBUG = os.getenv(
-    "DEBUG",
-    "True",
-).lower() == "true"
+DEBUG = os.getenv("DEBUG", "True").lower() == "true"
+
+if (
+    not DEBUG
+    and SECRET_KEY
+    == "django-insecure-development-key-change-before-production"
+):
+    raise ValueError(
+        "SECRET_KEY must be configured when DEBUG is False"
+    )
 
 ALLOWED_HOSTS = [
     host.strip()
@@ -192,25 +40,16 @@ ALLOWED_HOSTS = [
 ]
 
 
-# =========================================================
-# APPLICATIONS
-# =========================================================
-
 INSTALLED_APPS = [
-    # Django
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-
-    # Third-party
     "rest_framework",
     "corsheaders",
     "drf_spectacular",
-
-    # Project apps
     "authentication",
     "users",
     "courts",
@@ -226,16 +65,9 @@ INSTALLED_APPS = [
 ]
 
 
-# =========================================================
-# MIDDLEWARE
-# =========================================================
-
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-
-    # CorsMiddleware phải đặt trước CommonMiddleware
     "corsheaders.middleware.CorsMiddleware",
-
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -244,50 +76,26 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-
 ROOT_URLCONF = "config.urls"
-
-
-# =========================================================
-# TEMPLATES
-# =========================================================
 
 TEMPLATES = [
     {
-        "BACKEND": (
-            "django.template.backends.django."
-            "DjangoTemplates"
-        ),
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
         "DIRS": [],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
-                (
-                    "django.template.context_processors."
-                    "request"
-                ),
-                (
-                    "django.contrib.auth."
-                    "context_processors.auth"
-                ),
-                (
-                    "django.contrib.messages."
-                    "context_processors.messages"
-                ),
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
             ],
         },
     },
 ]
 
-
 WSGI_APPLICATION = "config.wsgi.application"
+ASGI_APPLICATION = "config.asgi.application"
 
-
-# =========================================================
-# DJANGO DATABASE
-# =========================================================
-# SQLite vẫn được Django sử dụng cho admin, session...
-# Dữ liệu chính của project được lưu trong MongoDB.
 
 DATABASES = {
     "default": {
@@ -297,40 +105,43 @@ DATABASES = {
 }
 
 
-# =========================================================
-# MONGODB / MONGOENGINE
-# =========================================================
-
 IS_TESTING = "test" in sys.argv
-
-if IS_TESTING:
-    MONGO_URI = os.getenv("MONGO_TEST_URI")
-else:
-    MONGO_URI = os.getenv("MONGO_URI")
-
-if not MONGO_URI:
-    variable_name = (
-        "MONGO_TEST_URI"
-        if IS_TESTING
-        else "MONGO_URI"
-    )
-
-    raise ValueError(
-        f"{variable_name} is missing in .env"
-    )
-
-
-connect(
-    alias="default",
-    host=MONGO_URI,
-    tls=True,
-    tlsCAFile=certifi.where(),
+USE_MOCK_DB = (
+    IS_TESTING
+    and os.getenv("USE_MOCK_DB", "True").lower() == "true"
 )
 
+if USE_MOCK_DB:
+    import mongomock
 
-# =========================================================
-# PASSWORD VALIDATION
-# =========================================================
+    connect(
+        alias="default",
+        db=os.getenv("MONGO_TEST_DB", "app_booking_test"),
+        host="mongodb://localhost",
+        mongo_client_class=mongomock.MongoClient,
+    )
+else:
+    mongo_variable = "MONGO_TEST_URI" if IS_TESTING else "MONGO_URI"
+    mongo_uri = os.getenv(mongo_variable)
+
+    if not mongo_uri:
+        raise ValueError(f"{mongo_variable} is missing in .env")
+
+    connect_options = {
+        "alias": "default",
+        "host": mongo_uri,
+    }
+
+    if mongo_uri.startswith("mongodb+srv://"):
+        connect_options.update(
+            {
+                "tls": True,
+                "tlsCAFile": certifi.where(),
+            }
+        )
+
+    connect(**connect_options)
+
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -360,24 +171,13 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-# =========================================================
-# INTERNATIONALIZATION
-# =========================================================
-
-LANGUAGE_CODE = "en-us"
-
+LANGUAGE_CODE = "vi"
 TIME_ZONE = "Asia/Ho_Chi_Minh"
-
 USE_I18N = True
 USE_TZ = True
 
 
-# =========================================================
-# CORS
-# =========================================================
-
 CORS_ALLOW_ALL_ORIGINS = DEBUG
-
 CORS_ALLOWED_ORIGINS = [
     origin.strip()
     for origin in os.getenv(
@@ -388,29 +188,13 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 
-# =========================================================
-# STATIC FILES
-# =========================================================
-
 STATIC_URL = "static/"
-
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
-# =========================================================
-# DJANGO REST FRAMEWORK
-# =========================================================
-
 REST_FRAMEWORK = {
-    "DEFAULT_SCHEMA_CLASS": (
-        "drf_spectacular.openapi.AutoSchema"
-    ),
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
-
-
-# =========================================================
-# SWAGGER
-# =========================================================
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Sport Booking API",

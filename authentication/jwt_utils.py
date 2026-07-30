@@ -1,11 +1,20 @@
+
+
 import os
-import jwt
 from datetime import datetime, timedelta
+
+import jwt
+from django.conf import settings
 from dotenv import load_dotenv
+
 
 load_dotenv()
 
-JWT_SECRET = os.getenv("JWT_SECRET", "jwt-secret-key")
+JWT_SECRET = os.getenv("JWT_SECRET")
+
+if not JWT_SECRET:
+    JWT_SECRET = settings.SECRET_KEY
+
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 JWT_EXPIRE_HOURS = int(os.getenv("JWT_EXPIRE_HOURS", 24))
 
@@ -19,12 +28,20 @@ def generate_token(user):
         "iat": datetime.utcnow(),
     }
 
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    return jwt.encode(
+        payload,
+        JWT_SECRET,
+        algorithm=JWT_ALGORITHM,
+    )
 
 
 def decode_token(token):
     try:
-        return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        return jwt.decode(
+            token,
+            JWT_SECRET,
+            algorithms=[JWT_ALGORITHM],
+        )
     except jwt.ExpiredSignatureError:
         return None
     except jwt.InvalidTokenError:
