@@ -1,4 +1,5 @@
 from datetime import datetime
+from mongoengine.queryset.visitor import Q
 
 from bson import ObjectId
 from mongoengine.errors import NotUniqueError
@@ -12,6 +13,7 @@ from courts.documents import Court
 from orders.documents import Order
 from products.documents import Product
 from reviews.documents import Review
+from users.documents import User
 
 
 def get_review_by_id(review_id):
@@ -619,8 +621,6 @@ class MyReviewListView(APIView):
             },
             status=status.HTTP_200_OK,
         )
-
-
 class AdminReviewListView(APIView):
     @login_required
     def get(self, request):
@@ -634,9 +634,79 @@ class AdminReviewListView(APIView):
 
         reviews = Review.objects()
 
+        search = request.query_params.get(
+            "search",
+            "",
+        ).strip()
+
+        target_type = request.query_params.get(
+            "target_type"
+        )
+
+        rating = request.query_params.get(
+            "rating"
+        )
+
         is_active = request.query_params.get(
             "is_active"
         )
+
+        if search:
+            matching_user_ids = [
+                item.id
+                for item in User.objects(
+                    Q(full_name__icontains=search)
+                    | Q(email__icontains=search)
+                ).only("id")
+            ]
+
+            search_query = (
+                Q(comment__icontains=search)
+                | Q(target_id__icontains=search)
+            )
+
+            if matching_user_ids:
+                search_query = (
+                    search_query
+                    | Q(user__in=matching_user_ids)
+                )
+
+            reviews = reviews.filter(
+                search_query
+            )
+
+        if target_type:
+            if target_type not in Review.TARGET_TYPE_CHOICES:
+                return Response(
+                    {
+                        "message": "Invalid target_type",
+                        "allowed_target_types": list(
+                            Review.TARGET_TYPE_CHOICES
+                        ),
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            reviews = reviews.filter(
+                target_type=target_type
+            )
+
+        if rating:
+            parsed_rating = parse_rating(rating)
+
+            if parsed_rating is None:
+                return Response(
+                    {
+                        "message": (
+                            "rating must be between 1 and 5"
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            reviews = reviews.filter(
+                rating=parsed_rating
+            )
 
         if is_active is not None:
             value = is_active.strip().lower()
@@ -661,13 +731,55 @@ class AdminReviewListView(APIView):
 
         return Response(
             {
-                "message": (
-                    "Get all reviews successfully"
-                ),
+                "message": "Get all reviews successfully",
                 "data": [
                     review.to_json_data()
                     for review in reviews
                 ],
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class ReviewStatusUpdateView(APIView):
+    @login_required
+    def patch(self, request, review_id):
+        user = request.current_user
+
+        if user.role not in ["admin", "staff"]:
+            return Response(
+                {"message": "Permission denied"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        review = get_review_by_id(review_id)
+
+        if not review:
+            return Response(
+                {"message": "Review not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        is_active = request.data.get("is_active")
+
+        if not isinstance(is_active, bool):
+            return Response(
+                {
+                    "message": "is_active must be a boolean"
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        review.is_active = is_active
+        review.updated_at = datetime.utcnow()
+        review.save()
+
+        return Response(
+            {
+                "message": (
+                    "Update review status successfully"
+                ),
+                "data": review.to_json_data(),
             },
             status=status.HTTP_200_OK,
         )

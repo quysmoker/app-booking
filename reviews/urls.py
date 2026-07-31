@@ -5,6 +5,7 @@ from reviews.views import (
     MyReviewListView,
     ReviewDetailView,
     ReviewListCreateView,
+    ReviewStatusUpdateView,
     ReviewSummaryView,
 )
 
@@ -29,6 +30,11 @@ urlpatterns = [
         "admin/all/",
         AdminReviewListView.as_view(),
         name="admin-review-list",
+    ),
+    path(
+        "<str:review_id>/status/",
+        ReviewStatusUpdateView.as_view(),
+        name="review-status-update",
     ),
     path(
         "<str:review_id>/",
