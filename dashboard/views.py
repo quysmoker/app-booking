@@ -1,5 +1,5 @@
-
 import calendar
+from collections import defaultdict
 from datetime import datetime, timedelta
 
 from rest_framework import status
@@ -9,6 +9,10 @@ from rest_framework.views import APIView
 from authentication.permissions import role_required
 from bookings.documents import Booking
 from courts.documents import Court
+from dashboard.services import (
+    filter_queryset_by_date,
+    get_date_range,
+)
 from orders.documents import Order
 from products.documents import Product
 from users.documents import User
@@ -280,6 +284,241 @@ class DashboardOverviewView(APIView):
             {
                 "message": (
                     "Get dashboard statistics successfully"
+                ),
+                "data": data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class DashboardReportView(APIView):
+    @role_required(["admin", "staff"])
+    def get(self, request):
+        start_date, end_date, date_error = (
+            get_date_range(request)
+        )
+
+        if date_error:
+            return Response(
+                {"message": date_error},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        bookings = filter_queryset_by_date(
+            Booking.objects(),
+            start_date=start_date,
+            end_date=end_date,
+            field_name="created_at",
+        )
+
+        orders = filter_queryset_by_date(
+            Order.objects(),
+            start_date=start_date,
+            end_date=end_date,
+            field_name="created_at",
+        )
+
+        completed_bookings = list(
+            bookings.filter(status="completed")
+        )
+        completed_orders = list(
+            orders.filter(status="completed")
+        )
+
+        booking_revenue = sum(
+            float(booking.total_price or 0)
+            for booking in completed_bookings
+        )
+        order_revenue = sum(
+            float(order.total_amount or 0)
+            for order in completed_orders
+        )
+
+        booking_statuses = {
+            item: bookings.filter(status=item).count()
+            for item in Booking.STATUS_CHOICES
+        }
+        order_statuses = {
+            item: orders.filter(status=item).count()
+            for item in Order.STATUS_CHOICES
+        }
+
+        daily_data = defaultdict(
+            lambda: {
+                "booking_revenue": 0.0,
+                "order_revenue": 0.0,
+            }
+        )
+
+        for booking in completed_bookings:
+            if not booking.created_at:
+                continue
+
+            date_key = booking.created_at.strftime(
+                "%Y-%m-%d"
+            )
+            daily_data[date_key][
+                "booking_revenue"
+            ] += float(booking.total_price or 0)
+
+        for order in completed_orders:
+            if not order.created_at:
+                continue
+
+            date_key = order.created_at.strftime(
+                "%Y-%m-%d"
+            )
+            daily_data[date_key][
+                "order_revenue"
+            ] += float(order.total_amount or 0)
+
+        daily_revenue = []
+
+        for date_key in sorted(daily_data):
+            booking_amount = daily_data[
+                date_key
+            ]["booking_revenue"]
+            order_amount = daily_data[
+                date_key
+            ]["order_revenue"]
+
+            daily_revenue.append(
+                {
+                    "date": date_key,
+                    "booking_revenue": round(
+                        booking_amount,
+                        2,
+                    ),
+                    "order_revenue": round(
+                        order_amount,
+                        2,
+                    ),
+                    "total_revenue": round(
+                        booking_amount + order_amount,
+                        2,
+                    ),
+                }
+            )
+
+        court_statistics = {}
+
+        for booking in completed_bookings:
+            court = booking.court
+
+            if not court:
+                continue
+
+            court_id = str(court.id)
+
+            if court_id not in court_statistics:
+                court_statistics[court_id] = {
+                    "court_id": court_id,
+                    "court_name": court.name,
+                    "sport_type": court.sport_type,
+                    "booking_count": 0,
+                    "revenue": 0.0,
+                }
+
+            court_statistics[court_id][
+                "booking_count"
+            ] += 1
+            court_statistics[court_id][
+                "revenue"
+            ] += float(booking.total_price or 0)
+
+        top_courts = sorted(
+            court_statistics.values(),
+            key=lambda item: (
+                item["revenue"],
+                item["booking_count"],
+            ),
+            reverse=True,
+        )[:5]
+
+        for item in top_courts:
+            item["revenue"] = round(
+                item["revenue"],
+                2,
+            )
+
+        product_statistics = {}
+
+        for order in completed_orders:
+            for item in order.items:
+                product_id = str(item.product_id)
+
+                if product_id not in product_statistics:
+                    product_statistics[product_id] = {
+                        "product_id": product_id,
+                        "product_name": item.product_name,
+                        "quantity": 0,
+                        "revenue": 0.0,
+                    }
+
+                product_statistics[product_id][
+                    "quantity"
+                ] += int(item.quantity or 0)
+                product_statistics[product_id][
+                    "revenue"
+                ] += float(item.subtotal or 0)
+
+        top_products = sorted(
+            product_statistics.values(),
+            key=lambda item: (
+                item["quantity"],
+                item["revenue"],
+            ),
+            reverse=True,
+        )[:5]
+
+        for item in top_products:
+            item["revenue"] = round(
+                item["revenue"],
+                2,
+            )
+
+        data = {
+            "period": {
+                "start_date": request.query_params.get(
+                    "start_date"
+                ),
+                "end_date": request.query_params.get(
+                    "end_date"
+                ),
+            },
+            "summary": {
+                "total_revenue": round(
+                    booking_revenue + order_revenue,
+                    2,
+                ),
+                "booking_revenue": round(
+                    booking_revenue,
+                    2,
+                ),
+                "order_revenue": round(
+                    order_revenue,
+                    2,
+                ),
+                "total_bookings": bookings.count(),
+                "completed_bookings": len(
+                    completed_bookings
+                ),
+                "total_orders": orders.count(),
+                "completed_orders": len(
+                    completed_orders
+                ),
+            },
+            "booking_statuses": booking_statuses,
+            "order_statuses": order_statuses,
+            "daily_revenue": daily_revenue,
+            "top_courts": top_courts,
+            "top_products": top_products,
+        }
+
+        return Response(
+            {
+                "message": (
+                    "Get dashboard report successfully"
                 ),
                 "data": data,
             },
