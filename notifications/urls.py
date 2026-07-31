@@ -4,6 +4,7 @@ from notifications.views import (
     AdminBroadcastNotificationView,
     AdminNotificationCreateView,
     AdminNotificationListView,
+    AdminNotificationStatusUpdateView,
     NotificationDetailView,
     NotificationListView,
     NotificationMarkAllReadView,
@@ -43,6 +44,11 @@ urlpatterns = [
         "admin/broadcast/",
         AdminBroadcastNotificationView.as_view(),
         name="admin-notification-broadcast",
+    ),
+    path(
+        "<str:notification_id>/status/",
+        AdminNotificationStatusUpdateView.as_view(),
+        name="admin-notification-status-update",
     ),
     path(
         "<str:notification_id>/",

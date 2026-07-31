@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from bson import ObjectId
+from mongoengine.queryset.visitor import Q
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -603,26 +604,18 @@ class AdminBroadcastNotificationView(APIView):
 
         if not is_admin_or_staff(admin_user):
             return Response(
-                {
-                    "message": "Permission denied"
-                },
+                {"message": "Permission denied"},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
         data = request.data
 
         title = str(
-            data.get(
-                "title",
-                "",
-            )
+            data.get("title", "")
         ).strip()
 
         message = str(
-            data.get(
-                "message",
-                "",
-            )
+            data.get("message", "")
         ).strip()
 
         notification_type = data.get(
@@ -630,24 +623,22 @@ class AdminBroadcastNotificationView(APIView):
             "system",
         )
 
-        related_id = str(
+        recipient_role = str(
             data.get(
-                "related_id",
-                "",
+                "recipient_role",
+                "all",
             )
+        ).strip().lower()
+
+        related_id = str(
+            data.get("related_id", "")
         ).strip()
 
         related_type = str(
-            data.get(
-                "related_type",
-                "",
-            )
+            data.get("related_type", "")
         ).strip()
 
-        custom_data = data.get(
-            "data",
-            {},
-        )
+        custom_data = data.get("data", {})
 
         if not title or not message:
             return Response(
@@ -655,6 +646,41 @@ class AdminBroadcastNotificationView(APIView):
                     "message": (
                         "title and message are required"
                     )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if len(title) > 255:
+            return Response(
+                {
+                    "message": (
+                        "title cannot exceed 255 characters"
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if len(message) > 2000:
+            return Response(
+                {
+                    "message": (
+                        "message cannot exceed "
+                        "2000 characters"
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        allowed_roles = [
+            "all",
+            *User.ROLE_CHOICES,
+        ]
+
+        if recipient_role not in allowed_roles:
+            return Response(
+                {
+                    "message": "Invalid recipient_role",
+                    "allowed_roles": allowed_roles,
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -683,7 +709,14 @@ class AdminBroadcastNotificationView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        recipients = User.objects()
+        recipients = User.objects(
+            is_active=True
+        )
+
+        if recipient_role != "all":
+            recipients = recipients.filter(
+                role=recipient_role
+            )
 
         notifications = create_bulk_notifications(
             recipients=recipients,
@@ -701,9 +734,8 @@ class AdminBroadcastNotificationView(APIView):
                     "Broadcast notification successfully"
                 ),
                 "data": {
-                    "sent_count": len(
-                        notifications
-                    )
+                    "sent_count": len(notifications),
+                    "recipient_role": recipient_role,
                 },
             },
             status=status.HTTP_201_CREATED,
@@ -717,13 +749,16 @@ class AdminNotificationListView(APIView):
 
         if not is_admin_or_staff(user):
             return Response(
-                {
-                    "message": "Permission denied"
-                },
+                {"message": "Permission denied"},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
         notifications = Notification.objects()
+
+        search = request.query_params.get(
+            "search",
+            "",
+        ).strip()
 
         recipient_id = request.query_params.get(
             "recipient_id"
@@ -743,6 +778,33 @@ class AdminNotificationListView(APIView):
             )
         )
 
+        if search:
+            matching_user_ids = [
+                item.id
+                for item in User.objects(
+                    Q(full_name__icontains=search)
+                    | Q(email__icontains=search)
+                ).only("id")
+            ]
+
+            search_query = (
+                Q(title__icontains=search)
+                | Q(message__icontains=search)
+                | Q(related_id__icontains=search)
+            )
+
+            if matching_user_ids:
+                search_query = (
+                    search_query
+                    | Q(
+                        recipient__in=matching_user_ids
+                    )
+                )
+
+            notifications = notifications.filter(
+                search_query
+            )
+
         if recipient_id:
             recipient = get_user_by_id(
                 recipient_id
@@ -750,9 +812,7 @@ class AdminNotificationListView(APIView):
 
             if not recipient:
                 return Response(
-                    {
-                        "message": "User not found"
-                    },
+                    {"message": "User not found"},
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
@@ -823,6 +883,55 @@ class AdminNotificationListView(APIView):
                     notification.to_json_data()
                     for notification in notifications
                 ],
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class AdminNotificationStatusUpdateView(APIView):
+    @login_required
+    def patch(self, request, notification_id):
+        user = request.current_user
+
+        if not is_admin_or_staff(user):
+            return Response(
+                {"message": "Permission denied"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        notification = get_notification_by_id(
+            notification_id
+        )
+
+        if not notification:
+            return Response(
+                {"message": "Notification not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        is_active = request.data.get("is_active")
+
+        if not isinstance(is_active, bool):
+            return Response(
+                {
+                    "message": (
+                        "is_active must be a boolean"
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        notification.is_active = is_active
+        notification.updated_at = datetime.utcnow()
+        notification.save()
+
+        return Response(
+            {
+                "message": (
+                    "Update notification status "
+                    "successfully"
+                ),
+                "data": notification.to_json_data(),
             },
             status=status.HTTP_200_OK,
         )
