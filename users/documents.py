@@ -1,23 +1,56 @@
-from mongoengine import Document, StringField, BooleanField, DateTimeField
 from datetime import datetime
+
+from mongoengine import (
+    BooleanField,
+    DateTimeField,
+    Document,
+    StringField,
+)
 
 
 class User(Document):
-    ROLE_CHOICES = ("admin", "staff", "user")
+    ROLE_CHOICES = (
+        "admin",
+        "staff",
+        "user",
+    )
 
-    full_name = StringField(required=True, max_length=100)
-    email = StringField(required=True, unique=True)
+    full_name = StringField(
+        required=True,
+        max_length=100,
+    )
+
+    email = StringField(
+        required=True,
+        unique=True,
+    )
+
     phone = StringField(max_length=20)
     password = StringField(required=True)
-    role = StringField(choices=ROLE_CHOICES, default="user")
+
+    role = StringField(
+        choices=ROLE_CHOICES,
+        default="user",
+    )
+
     avatar = StringField()
     is_active = BooleanField(default=True)
-    created_at = DateTimeField(default=datetime.utcnow)
-    updated_at = DateTimeField(default=datetime.utcnow)
+
+    created_at = DateTimeField(
+        default=datetime.utcnow,
+    )
+
+    updated_at = DateTimeField(
+        default=datetime.utcnow,
+    )
 
     meta = {
         "collection": "users",
-        "indexes": ["email", "role"],
+        "indexes": [
+            "email",
+            "role",
+            "is_active",
+        ],
         "ordering": ["-created_at"],
     }
 
@@ -30,5 +63,14 @@ class User(Document):
             "role": self.role,
             "avatar": self.avatar,
             "is_active": self.is_active,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "created_at": (
+                self.created_at.isoformat()
+                if self.created_at
+                else None
+            ),
+            "updated_at": (
+                self.updated_at.isoformat()
+                if self.updated_at
+                else None
+            ),
         }
