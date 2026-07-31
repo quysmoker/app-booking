@@ -61,7 +61,12 @@ class Payment(Document):
         default="",
     )
 
+    refund_reason = StringField(
+        default="",
+    )
+
     paid_at = DateTimeField()
+    refunded_at = DateTimeField()
     created_at = DateTimeField(default=datetime.utcnow)
     updated_at = DateTimeField(default=datetime.utcnow)
 
@@ -83,14 +88,25 @@ class Payment(Document):
             "order_id": str(self.order.id),
             "order_code": self.order.code,
             "user_id": str(self.user.id),
+            "user": (
+                self.user.to_json_data()
+                if self.user
+                else None
+            ),
             "amount": self.amount,
             "method": self.method,
             "status": self.status,
             "transaction_code": self.transaction_code,
             "failure_reason": self.failure_reason,
+            "refund_reason": self.refund_reason,
             "paid_at": (
                 self.paid_at.isoformat()
                 if self.paid_at
+                else None
+            ),
+            "refunded_at": (
+                self.refunded_at.isoformat()
+                if self.refunded_at
                 else None
             ),
             "created_at": (

@@ -5,6 +5,7 @@ from payments.views import (
     PaymentDetailView,
     PaymentFailView,
     PaymentListCreateView,
+    PaymentRefundView,
 )
 
 
@@ -28,5 +29,10 @@ urlpatterns = [
         "<str:payment_id>/fail/",
         PaymentFailView.as_view(),
         name="payment-fail",
+    ),
+    path(
+        "<str:payment_id>/refund/",
+        PaymentRefundView.as_view(),
+        name="payment-refund",
     ),
 ]
