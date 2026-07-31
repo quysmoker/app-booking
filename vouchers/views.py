@@ -4,8 +4,12 @@ from bson import ObjectId
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from mongoengine.queryset.visitor import Q
 
-from authentication.permissions import role_required
+from authentication.permissions import (
+    get_current_user,
+    role_required,
+)
 from vouchers.documents import Voucher
 
 
@@ -60,24 +64,123 @@ def parse_boolean(value):
 
 class VoucherListCreateView(APIView):
     def get(self, request):
-        now = datetime.utcnow()
+        current_user = get_current_user(request)
 
-        vouchers = Voucher.objects(
-            is_active=True,
-            start_date__lte=now,
-            end_date__gte=now,
+        is_manager = (
+            current_user is not None
+            and current_user.role
+            in ["admin", "staff"]
         )
 
-        available_vouchers = [
-            voucher.to_json_data()
-            for voucher in vouchers
-            if voucher.is_available()
-        ]
+        if is_manager:
+            vouchers = Voucher.objects()
+
+            search = str(
+                request.query_params.get(
+                    "search",
+                    "",
+                )
+            ).strip()
+
+            discount_type = (
+                request.query_params.get(
+                    "discount_type"
+                )
+            )
+
+            is_active = (
+                request.query_params.get(
+                    "is_active"
+                )
+            )
+
+            if discount_type:
+                if (
+                    discount_type
+                    not in (
+                        Voucher
+                        .DISCOUNT_TYPE_CHOICES
+                    )
+                ):
+                    return Response(
+                        {
+                            "message": (
+                                "Invalid discount type"
+                            ),
+                            "allowed_types": list(
+                                Voucher
+                                .DISCOUNT_TYPE_CHOICES
+                            ),
+                        },
+                        status=(
+                            status
+                            .HTTP_400_BAD_REQUEST
+                        ),
+                    )
+
+                vouchers = vouchers.filter(
+                    discount_type=discount_type
+                )
+
+            if is_active is not None:
+                active_value = parse_boolean(
+                    is_active
+                )
+
+                if active_value is None:
+                    return Response(
+                        {
+                            "message": (
+                                "is_active must be "
+                                "true or false"
+                            )
+                        },
+                        status=(
+                            status
+                            .HTTP_400_BAD_REQUEST
+                        ),
+                    )
+
+                vouchers = vouchers.filter(
+                    is_active=active_value
+                )
+
+            if search:
+                vouchers = vouchers.filter(
+                    Q(code__icontains=search)
+                    | Q(name__icontains=search)
+                    | Q(
+                        description__icontains=search
+                    )
+                )
+
+            voucher_data = [
+                voucher.to_json_data()
+                for voucher in vouchers
+            ]
+
+        else:
+            now = datetime.utcnow()
+
+            vouchers = Voucher.objects(
+                is_active=True,
+                start_date__lte=now,
+                end_date__gte=now,
+            )
+
+            voucher_data = [
+                voucher.to_json_data()
+                for voucher in vouchers
+                if voucher.is_available()
+            ]
 
         return Response(
             {
-                "message": "Get vouchers successfully",
-                "data": available_vouchers,
+                "message": (
+                    "Get vouchers successfully"
+                ),
+                "total": len(voucher_data),
+                "data": voucher_data,
             },
             status=status.HTTP_200_OK,
         )
@@ -248,6 +351,26 @@ class VoucherDetailView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        current_user = get_current_user(
+            request
+        )
+
+        is_manager = (
+            current_user is not None
+            and current_user.role
+            in ["admin", "staff"]
+        )
+
+        if (
+            not is_manager
+            and not voucher.is_available()
+        ):
+            return Response(
+                {"message": "Voucher not found"},
+                status=(
+                    status.HTTP_404_NOT_FOUND
+                ),
+            )
         return Response(
             {
                 "message": "Get voucher detail successfully",
@@ -459,6 +582,49 @@ class VoucherDetailView(APIView):
             {"message": "Delete voucher successfully"},
             status=status.HTTP_200_OK,
         )
+
+class VoucherStatusUpdateView(APIView):
+    @role_required(["admin", "staff"])
+    def patch(self, request, voucher_id):
+        voucher = get_voucher_by_id(
+            voucher_id
+        )
+
+        if not voucher:
+            return Response(
+                {"message": "Voucher not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        active_value = parse_boolean(
+            request.data.get("is_active")
+        )
+
+        if active_value is None:
+            return Response(
+                {
+                    "message": (
+                        "is_active must be "
+                        "true or false"
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        voucher.is_active = active_value
+        voucher.updated_at = datetime.utcnow()
+        voucher.save()
+
+        return Response(
+            {
+                "message": (
+                    "Update voucher status successfully"
+                ),
+                "data": voucher.to_json_data(),
+            },
+            status=status.HTTP_200_OK,
+        )
+
 
 
 class VoucherValidateView(APIView):

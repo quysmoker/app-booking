@@ -3,6 +3,7 @@ from django.urls import path
 from vouchers.views import (
     VoucherDetailView,
     VoucherListCreateView,
+    VoucherStatusUpdateView,
     VoucherValidateView,
 )
 
@@ -17,6 +18,11 @@ urlpatterns = [
         "validate/",
         VoucherValidateView.as_view(),
         name="voucher-validate",
+    ),
+    path(
+        "<str:voucher_id>/status/",
+        VoucherStatusUpdateView.as_view(),
+        name="voucher-status-update",
     ),
     path(
         "<str:voucher_id>/",
